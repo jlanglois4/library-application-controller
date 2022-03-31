@@ -15,9 +15,7 @@ import java.util.stream.Stream;
 
 public class LibraryWindow extends JFrame {
 
-    // Array lists of data to populate the JLists
-    private List<Borrower> borrowerList;
-    private List<Book> availableBookList;
+    private final Controller controller;
 
     // GUI widgets -- you don't need to change these
     private JList<Borrower> lstBorrowers = new JList<>();
@@ -31,14 +29,11 @@ public class LibraryWindow extends JFrame {
     private JButton btnBookSearch = new JButton("Search Books");
     private JButton btnSaveAndExit = new JButton("Save and Exit");
 
-    public LibraryWindow() {
+    public LibraryWindow(Controller controller) {
         super("Library Lending System");
+        this.controller = controller;
 
-        // Read JSON files into the data lists
-        readDataFiles();
-        // Put the list data into the window components for display
-        displayAvailableBooks(availableBookList);
-        displayBorrowers(borrowerList);
+
 
         // Set up the GUI and layout components
         init();
@@ -49,23 +44,7 @@ public class LibraryWindow extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     }
 
-    public void checkoutBook() {
-        // Get selections from the JLists (window widgets)
-        Borrower borrower = getSelectedBorrower();
-        Book book = getSelectedAvailableBook();
 
-        // Ensure one of each is selected
-        if (book == null || borrower == null) {
-            JOptionPane.showMessageDialog(this, "You must select a borrower and a book to checkout.");
-        } else {
-            // Remove book from data list and add to selected borrower
-            availableBookList.remove(book);
-            borrower.checkoutBook(book);
-
-            // Update the screen to show the book is checked out
-            refreshBookDisplay(availableBookList);
-        }
-    }
 
     // Get search term from the text box
     public String getBookSearchTerm() {
@@ -94,13 +73,13 @@ public class LibraryWindow extends JFrame {
 
     private void init() {
         // Add actions to the buttons that will call a method when clicked
-        btnCheckoutBook.addActionListener(e -> checkoutBook());
-        btnReturnBook.addActionListener(e -> returnBook());
+        btnCheckoutBook.addActionListener(e -> controller.checkoutBook());
+        btnReturnBook.addActionListener(e -> controller.returnBook());
 
-        btnBookSearch.addActionListener(e -> searchBooks());
-        btnBorrowerSearch.addActionListener(e -> searchBorrowers());
+        btnBookSearch.addActionListener(e -> controller.searchBooks());
+        btnBorrowerSearch.addActionListener(e -> controller.searchBorrowers());
 
-        btnSaveAndExit.addActionListener(e -> saveAndExit());
+        btnSaveAndExit.addActionListener(e -> controller.saveAndExit());
 
         // When user selects borrower from the list, shows their borrowed books
         lstBorrowers.addListSelectionListener(e -> {
@@ -154,6 +133,15 @@ public class LibraryWindow extends JFrame {
 
         getContentPane().add(pnlMain);
     }
+    public void displayAvailableBooks(List<Book> list) {
+        // Set the data in the JList (window widget)
+        lstBooksAvailable.setListData(list.toArray(new Book[0]));
+    }
+
+    public void displayBorrowers(List<Borrower> list) {
+        // Set the data in the JList (window widget)
+        lstBorrowers.setListData(list.toArray(new Borrower[0]));
+    }
 
     // Display books on loan to the selected borrower
     public void displayBooksOnLoan() {
@@ -165,103 +153,7 @@ public class LibraryWindow extends JFrame {
         }
     }
 
-    // Read the JSON files into the data lists and display them
-    public void readDataFiles() {
-        // Create empty lists
-        availableBookList = new ArrayList<>();
-        borrowerList = new ArrayList<>();
-
-        // Create a JSON object mapper
-        ObjectMapper mapper = new ObjectMapper();
-        try {
-            // Create Java objects from the JSON data and stream into the lists
-            Stream.of(mapper.readValue(new File("books.json"), Book[].class)).forEach(availableBookList::add);
-            Stream.of(mapper.readValue(new File("borrowers.json"), Borrower[].class)).forEach(borrowerList::add);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
 
 
-    public void returnBook() {
-        // Get selections from the JLists (window widgets)
-        Borrower borrower = getSelectedBorrower();
-        Book book = getSelectedBookOnLoan();
 
-        // Ensure one of each is selected
-        if (book == null || borrower == null) {
-            JOptionPane.showMessageDialog(this, "You must select a borrower and a book to return.");
-        } else {
-            // Add the book to the data list and remove from the borrower
-            availableBookList.add(book);
-            borrower.returnBook(book);
-
-            // Update the screen to show the book is checked out
-            refreshBookDisplay(availableBookList);
-        }
-    }
-
-    public void refreshBookDisplay(List<Book> availableBookList) {
-        // Update both book lists (available and on loan) in the window
-        displayAvailableBooks(availableBookList);
-        displayBooksOnLoan();
-    }
-
-    public void saveAndExit() {
-        // Write the borrower and book lists to JSON files
-        writeDataFiles();
-
-        // Close this window, which will exit the program
-        this.dispose();
-    }
-
-    public void searchBooks() {
-        // Get search string from the text box
-        String searchTerm = getBookSearchTerm();
-
-        // Filter available books to those matching the search string
-        List<Book> matches = availableBookList.stream()
-                .filter(b ->
-                        b.getAuthor().toString().toLowerCase().contains(searchTerm.toLowerCase()) ||
-                                b.getTitle().toLowerCase().contains(searchTerm.toLowerCase()))
-                .collect(Collectors.toList());
-
-        // Display matches
-        displayAvailableBooks(matches);
-    }
-
-    public void searchBorrowers() {
-        // Get search string from the text box
-        String searchTerm = getBorrowerSearchTerm();
-
-        // Filter borrowers to those matching the search string
-        List<Borrower> matches = borrowerList.stream()
-                .filter(b -> b.toString().toLowerCase().contains(searchTerm.toLowerCase()))
-                .collect(Collectors.toList());
-
-        // Display matches
-        displayBorrowers(matches);
-    }
-
-    public void displayAvailableBooks(List<Book> list) {
-        // Set the data in the JList (window widget)
-        lstBooksAvailable.setListData(list.toArray(new Book[0]));
-    }
-
-    public void displayBorrowers(List<Borrower> list) {
-        // Set the data in the JList (window widget)
-        lstBorrowers.setListData(list.toArray(new Borrower[0]));
-    }
-
-    public void writeDataFiles() {
-        // Create a JSON mapper
-        ObjectMapper mapper = new ObjectMapper();
-        try {
-            // Write the data lists as JSON to the files
-            mapper.writerWithDefaultPrettyPrinter().writeValue(new File("books.json"), availableBookList);
-            mapper.writerWithDefaultPrettyPrinter().writeValue(new File("borrowers.json"), borrowerList);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
 }
